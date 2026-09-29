@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
@@ -62,22 +63,12 @@ public class ResearchService {
             String effectiveKey = geminiApiKey.trim();
             String url = normalizeUrl(geminiApiUrl);
 
-            WebClient.RequestHeadersSpec<?> requestSpec;
-            if (url.contains("key=")) {
-                requestSpec = webClient.post()
-                        .uri(url.endsWith("=") ? url + effectiveKey : url + "&key=" + effectiveKey)
-                        .header("x-goog-api-key", effectiveKey)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(requestBody);
-            } else {
-                requestSpec = webClient.post()
-                        .uri(url)
-                        .header("x-goog-api-key", effectiveKey)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(requestBody);
-            }
-
-            String response = requestSpec
+            String response = webClient.post()
+                    .uri(url)
+                    // Keep credentials out of the JSON payload and query string.
+                    .header("x-goog-api-key", effectiveKey)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(requestBody)
                     .retrieve()
                     .onStatus(
                             HttpStatusCode::isError,
@@ -190,6 +181,12 @@ public class ResearchService {
                 url += "/v1beta/models/gemini-2.0-flash:generateContent";
             }
         }
-        return url;
+
+        // Older Render settings may contain ?key=...; remove it because the
+        // Gemini API key is sent securely through x-goog-api-key instead.
+        return UriComponentsBuilder.fromUriString(url)
+                .replaceQueryParam("key")
+                .build()
+                .toUriString();
     }
 }

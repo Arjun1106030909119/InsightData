@@ -7,7 +7,7 @@ WORKDIR /app
 COPY InsightData/pom.xml .
 COPY InsightData/src ./src
 
-RUN mvn clean package -DskipTests
+RUN mvn -B clean package -DskipTests
 
 # Stage 2: Run (lightweight JRE only)
 FROM eclipse-temurin:21-jre
